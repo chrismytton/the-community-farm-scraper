@@ -2,6 +2,7 @@ require 'nokogiri'
 require 'date'
 require 'digest'
 require 'scraperwiki'
+require 'json'
 
 ScraperWiki.config = {db: 'data.sqlite', default_table_name: 'data'}
 
