@@ -1,24 +1,44 @@
-# This is a template for a Ruby scraper on Morph (https://morph.io)
-# including some code snippets below that you should find helpful
+require 'nokogiri'
+require 'date'
+require 'digest'
+require 'scraperwiki'
 
-# require 'scraperwiki'
-# require 'mechanize'
-#
-# agent = Mechanize.new
-#
-# # Read in a page
-# page = agent.get("http://foo.com")
-#
-# # Find somehing on the page using css selectors
-# p page.at('div.content')
-#
-# # Write out to the sqlite database using scraperwiki library
-# ScraperWiki.save_sqlite(["name"], {"name" => "susan", "occupation" => "software developer"})
-#
-# # An arbitrary query against the database
-# ScraperWiki.select("* from data where 'name'='peter'")
+ScraperWiki.config = {db: 'data.sqlite', default_table_name: 'data'}
 
-# You don't have to do things with the Mechanize or ScraperWiki libraries. You can use whatever gems are installed
-# on Morph for Ruby (https://github.com/openaustralia/morph-docker-ruby/blob/master/Gemfile) and all that matters
-# is that your final data is written to an Sqlite database called data.sqlite in the current working directory which
-# has at least a table called data.
+box_url = 'http://www.thecommunityfarm.co.uk/boxes/box_display.php'
+html = ScraperWiki.scrape(box_url)
+doc = Nokogiri.HTML(html)
+box_date = (Date.today - Date.today.wday + 1).iso8601
+
+doc.css('.panel').each do |panel|
+
+  title = panel.at_css('.lead').text.strip
+  box_size = panel.at_css('option[selected]')
+  if box_size
+    title += " #{box_size.text.strip}"
+  end
+  item_selector = %Q{[data-content*="This week's contents"]}
+  item_html = panel.at_css(item_selector)['data-content']
+  item_doc = Nokogiri.HTML(item_html)
+  items = item_doc.css('li').map { |li| li.text.strip }
+
+  id = Digest::MD5.new
+  id.update(title)
+  id.update(box_date)
+  id.update(items.join("\n"))
+
+  if (ScraperWiki.select("* from data where id = ?", id.to_s).any? rescue false)
+    puts "Existing box found, skipping #{id} #{title}"
+    next
+  end
+
+  puts "Creating new entry for #{id} #{title}"
+  ScraperWiki.save_sqlite(
+    [:id],
+    id: id.to_s,
+    date: box_date,
+    title: title,
+    items: JSON.generate(items),
+  )
+
+end
