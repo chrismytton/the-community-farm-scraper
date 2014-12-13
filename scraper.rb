@@ -4,7 +4,7 @@ require 'digest'
 require 'scraperwiki'
 require 'json'
 
-ScraperWiki.config = {db: 'data.sqlite', default_table_name: 'data'}
+ScraperWiki.config = { db: 'data.sqlite', default_table_name: 'data' }
 
 box_url = 'http://www.thecommunityfarm.co.uk/boxes/box_display.php'
 html = ScraperWiki.scrape(box_url)
@@ -12,13 +12,10 @@ doc = Nokogiri.HTML(html)
 box_date = (Date.today - Date.today.wday + 1).iso8601
 
 doc.css('.panel').each do |panel|
-
   title = panel.at_css('.lead').text.strip
   box_size = panel.at_css('option[selected]')
-  if box_size
-    title += " #{box_size.text.strip}"
-  end
-  item_selector = %Q{[data-content*="This week's contents"]}
+  box_size && title += " #{box_size.text.strip}"
+  item_selector = %([data-content*="This week's contents"])
   item_html = panel.at_css(item_selector)['data-content']
   item_doc = Nokogiri.HTML(item_html)
   items = item_doc.css('li').map { |li| li.text.strip }
@@ -28,7 +25,13 @@ doc.css('.panel').each do |panel|
   id.update(box_date)
   id.update(items.join("\n"))
 
-  if (ScraperWiki.select("* from data where id = ?", id.to_s).any? rescue false)
+  box_exists = begin
+    ScraperWiki.select('* from data where id = ?', id.to_s).any?
+  rescue
+    false
+  end
+
+  if box_exists
     puts "Existing box found, skipping #{id} #{title}"
     next
   end
@@ -39,7 +42,6 @@ doc.css('.panel').each do |panel|
     id: id.to_s,
     date: box_date,
     title: title,
-    items: JSON.generate(items),
+    items: JSON.generate(items)
   )
-
 end
