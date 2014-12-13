@@ -5,7 +5,7 @@ require 'scraperwiki'
 require 'json'
 require 'active_support/core_ext'
 
-ENV['VERBOSE'] = ENV['MORPH_VERBOSE']
+ENV['VERBOSE'] ||= ENV['MORPH_VERBOSE']
 
 ScraperWiki.config = { db: 'data.sqlite', default_table_name: 'data' }
 
