@@ -26,7 +26,7 @@ doc.css('.panel').each do |panel|
   id.update(items.join("\n"))
 
   box_exists = begin
-    ScraperWiki.select('* from data where id = ?', id.to_s).any?
+    ScraperWiki.select('* from data where id = ?', id.hexdigest).any?
   rescue
     false
   end
@@ -39,7 +39,7 @@ doc.css('.panel').each do |panel|
   puts "Creating new entry for #{id} #{title}"
   ScraperWiki.save_sqlite(
     [:id],
-    id: id.to_s,
+    id: id.hexdigest,
     date: box_date,
     title: title,
     items: JSON.generate(items),
