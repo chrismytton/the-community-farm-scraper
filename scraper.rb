@@ -42,6 +42,7 @@ doc.css('.panel').each do |panel|
     id: id.to_s,
     date: box_date,
     title: title,
-    items: JSON.generate(items)
+    items: JSON.generate(items),
+    created_at: DateTime.now.to_s
   )
 end
