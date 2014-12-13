@@ -3,13 +3,17 @@ require 'date'
 require 'digest'
 require 'scraperwiki'
 require 'json'
+require 'active_support/core_ext'
 
 ScraperWiki.config = { db: 'data.sqlite', default_table_name: 'data' }
 
 box_url = 'http://www.thecommunityfarm.co.uk/boxes/box_display.php'
 html = ScraperWiki.scrape(box_url)
 doc = Nokogiri.HTML(html)
-box_date = (Date.today - Date.today.wday + 1).iso8601
+
+# New boxes are usually added on Fridays
+Date.beginning_of_week = :friday
+box_date = Date.today.at_beginning_of_week.iso8601
 
 doc.css('.panel').each do |panel|
   title = panel.at_css('.lead').text.strip
