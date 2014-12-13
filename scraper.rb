@@ -12,8 +12,7 @@ html = ScraperWiki.scrape(box_url)
 doc = Nokogiri.HTML(html)
 
 # New boxes are usually added on Fridays
-Date.beginning_of_week = :friday
-box_date = Date.today.at_beginning_of_week.iso8601
+box_date = Date.today.at_beginning_of_week(:friday).iso8601
 
 doc.css('.panel').each do |panel|
   title = panel.at_css('.lead').text.strip
