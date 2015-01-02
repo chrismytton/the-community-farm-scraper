@@ -3,7 +3,6 @@ require 'date'
 require 'digest'
 require 'scraperwiki'
 require 'json'
-require 'active_support/core_ext'
 
 ENV['VERBOSE'] ||= ENV['MORPH_VERBOSE']
 
@@ -12,9 +11,6 @@ ScraperWiki.config = { db: 'data.sqlite', default_table_name: 'data' }
 box_url = 'http://www.thecommunityfarm.co.uk/boxes/box_display.php'
 html = ScraperWiki.scrape(box_url)
 doc = Nokogiri.HTML(html)
-
-# New boxes are usually added on Fridays
-box_date = Date.today.at_beginning_of_week(:friday).iso8601
 
 doc.css('.panel').each do |panel|
   title = panel.at_css('.lead').text.strip
@@ -27,7 +23,6 @@ doc.css('.panel').each do |panel|
 
   id = Digest::MD5.new
   id.update(title)
-  id.update(box_date)
   id.update(items.join("\n"))
 
   box_exists = begin
@@ -45,7 +40,7 @@ doc.css('.panel').each do |panel|
   ScraperWiki.save_sqlite(
     [:id],
     id: id.hexdigest,
-    date: box_date,
+    date: Date.today.iso8601,
     title: title,
     items: JSON.generate(items),
     created_at: DateTime.now.to_s
