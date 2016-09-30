@@ -1,12 +1,9 @@
+require 'bundler/setup'
 require 'nokogiri'
 require 'date'
 require 'digest'
 require 'scraperwiki'
 require 'json'
-
-ENV['VERBOSE'] ||= ENV['MORPH_VERBOSE']
-
-ScraperWiki.config = { db: 'data.sqlite', default_table_name: 'data' }
 
 box_url = 'http://www.thecommunityfarm.co.uk/boxes/box_display.php'
 html = ScraperWiki.scrape(box_url)
