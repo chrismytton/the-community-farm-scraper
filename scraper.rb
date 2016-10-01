@@ -1,45 +1,98 @@
+# frozen_string_literal: true
 require 'bundler/setup'
 require 'nokogiri'
 require 'date'
 require 'digest'
 require 'scraperwiki'
 require 'json'
+require 'open-uri'
+require 'pry'
+require 'dotenv'
 
-box_url = 'http://www.thecommunityfarm.co.uk/boxes/box_display.php'
-html = ScraperWiki.scrape(box_url)
-doc = Nokogiri.HTML(html)
+Dotenv.load
 
-doc.css('.panel').each do |panel|
-  title = panel.at_css('.lead').text.strip
-  box_size = panel.at_css('option[selected]')
-  box_size && title += " #{box_size.text.strip}"
-  item_selector = %([data-content*="This week's contents"])
-  item_html = panel.at_css(item_selector)['data-content']
-  item_doc = Nokogiri.HTML(item_html)
-  items = item_doc.css('li').map { |li| li.text.strip }
+def morph(sql, scraper = ENV['MORPH_SCRAPER'], api_key = ENV['MORPH_API_KEY'])
+  url = URI::HTTPS.build(
+    host: 'api.morph.io',
+    path: "/#{scraper}/data.json",
+    query: URI.encode_www_form(query: sql, key: api_key)
+  )
+  JSON.parse(url.open.read, symbolize_names: true)
+end
 
-  id = Digest::MD5.new
-  id.update(title)
-  id.update(items.join("\n"))
+class CommunityFarm
+  class Box
+    def initialize(noko:)
+      @noko = noko
+    end
 
-  box_exists = begin
-    ScraperWiki.select('* from data where id = ?', id.hexdigest).any?
-  rescue
-    false
+    def id
+      Digest::MD5.new.tap do |id|
+        id.update(title)
+        id.update(items.join("\n"))
+      end.hexdigest
+    end
+
+    def title
+      @title ||= noko.at_css('.lead').text.strip
+    end
+
+    def box_size
+      @box_size ||= noko.at_css('option[selected]')&.text&.strip
+    end
+
+    def items
+      @items ||= item_doc.css('li').map { |li| li.text.strip }
+    end
+
+    def to_s
+      "#{title} #{box_size}".strip
+    end
+
+    private
+
+    attr_reader :noko
+
+    def item_doc
+      @item_doc ||= Nokogiri::HTML(noko.at_css(item_selector)['data-content'])
+    end
+
+    def item_selector
+      %([data-content*="This week's contents"])
+    end
   end
 
-  if box_exists
-    puts "Existing box found, skipping #{id} #{title}"
-    next
+  def initialize(html:)
+    @html = html
   end
 
-  puts "Creating new entry for #{id} #{title}"
+  def boxes
+    noko.css('.panel').map { |p| Box.new(noko: p) }
+  end
+
+  private
+
+  attr_reader :html
+
+  def noko
+    @noko ||= Nokogiri::HTML(html)
+  end
+end
+
+# page = morph("select id, html from 'data' limit 1").first
+
+html = open('https://chrismytton.github.io/the-community-farm-html/').read
+
+cf = CommunityFarm.new(html: html)
+
+cf.boxes.each do |box|
+  puts "#{box.id} #{box}"
   ScraperWiki.save_sqlite(
     [:id],
-    id: id.hexdigest,
+    id: box.id,
     date: Date.today.iso8601,
-    title: title,
-    items: JSON.generate(items),
+    title: box.to_s,
+    items: JSON.generate(box.items),
     created_at: DateTime.now.to_s
   )
 end
